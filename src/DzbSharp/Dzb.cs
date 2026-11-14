@@ -13,18 +13,20 @@ public struct DzbTriangle
     public ushort Group;
 }
 
+/// <summary>An octree node. A branch's children are node indices by octant (x in bit 0, y bit 1, z bit 2), 0xFFFF
+/// for empty; a leaf's first child is a block index.</summary>
 public sealed class DzbTreeNode
 {
-    public byte Flags { get; set; }
-    public byte Unknown { get; set; }
+    public byte Flags { get; set; } = 1;
+    public byte Kind { get; set; }
     public ushort Parent { get; set; } = 0xFFFF;
-    public ushort[] Children { get; } = new ushort[8];
+    public ushort[] Children { get; } = [0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF];
 
-    public bool IsLeaf => (Flags & 1) != 0;
+    public bool IsLeaf => Kind != 0;
 }
 
 /// <summary>A DZB collision file: vertices, triangles, an octree of triangle blocks, and a group.</summary>
-public sealed class DzbFile
+public sealed partial class DzbFile
 {
     private const int HeaderSize = 0x34;
 
@@ -91,7 +93,7 @@ public sealed class DzbFile
         for (int i = 0; i < tree.Count; i++)
         {
             int at = tree.Offset + i * 20;
-            DzbTreeNode node = new() { Flags = data[at], Unknown = data[at + 1], Parent = U16(data, at + 2) };
+            DzbTreeNode node = new() { Flags = data[at], Kind = data[at + 1], Parent = U16(data, at + 2) };
             for (int c = 0; c < 8; c++) node.Children[c] = U16(data, at + 4 + c * 2);
             dzb.TreeNodes.Add(node);
         }
@@ -124,7 +126,7 @@ public sealed class DzbFile
         foreach (DzbTreeNode n in TreeNodes)
         {
             o.WriteByte(n.Flags);
-            o.WriteByte(n.Unknown);
+            o.WriteByte(n.Kind);
             Write16(o, n.Parent);
             foreach (ushort c in n.Children) Write16(o, c);
         }
